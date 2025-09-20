@@ -11,9 +11,9 @@
 		"enabled": true
 	},
 	"build": {
-    "command": "wasm-pack build --target bundler --out-dir ../worker/dist",
-    "watch_dir": "worker"
-	
+    "command": "wasm-pack build --target bundler --out-dir ./dist",
+    "watch_dir": ["src"],
+    "cwd": "worker"
   },
 	/**
 	 * Smart Placement
