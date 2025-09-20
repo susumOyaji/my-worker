@@ -5,11 +5,16 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "my-worker",
-	"main": "src/index.js",
+	"main": "./worker/dist/index.js",
 	"compatibility_date": "2025-09-19",
 	"observability": {
 		"enabled": true
-	}
+	},
+	"build": {
+    "command": "wasm-pack build --target bundler --out-dir ../worker/dist",
+    "watch_dir": "worker"
+	
+  },
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
