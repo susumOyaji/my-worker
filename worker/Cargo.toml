@@ -8,3 +8,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 worker = "0.3.0"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
