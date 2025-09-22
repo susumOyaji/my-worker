@@ -1,5 +1,5 @@
-C:\Users\kanda\GitHub\my-worker\worker\target\debug\deps\index.d: src\lib.rs
+/Users/sumitomoshigeru/Documents/GitHub/my-worker/worker/target/debug/deps/libindex.dylib: src/lib.rs
 
-C:\Users\kanda\GitHub\my-worker\worker\target\debug\deps\index.dll: src\lib.rs
+/Users/sumitomoshigeru/Documents/GitHub/my-worker/worker/target/debug/deps/index.d: src/lib.rs
 
-src\lib.rs:
+src/lib.rs:

@@ -1,18 +1,13 @@
 use worker::*;
-use serde_json::json;
 
 #[event(fetch)]
-pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
-    let secret_value = env
-        .var("MY_VARIABLE")
-        .ok()
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "undefined".to_string());
+pub async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
+    let url = req.url()?;
 
-    let json_value = json!({
-        "message": "Hello from Rust Worker!",
-        "env_name": secret_value
-    });
+    let name = url.query_pairs()
+        .find(|(key, _)| key == "name")
+        .map(|(_, value)| value.into_owned())
+        .unwrap_or_else(|| "World".to_string());
 
-    Response::from_json(&json_value)
+    Response::ok(format!("Echoed: {}", name))
 }

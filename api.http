@@ -1,2 +1,7 @@
 ### Send a test request to the worker
+# @name basic
 GET http://localhost:8787/
+
+### Send a test request with a name query parameter
+# @name with-name
+GET http://localhost:8787/?name=Gemini
