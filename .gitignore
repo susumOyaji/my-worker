@@ -165,3 +165,8 @@ dist
 .env*
 !.env.example
 .wrangler/
+
+
+
+
+#npm install --save-dev wrangler@4.38.0
