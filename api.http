@@ -1,7 +1,20 @@
-### Send a test request to the worker
-# @name basic
+### Test the root endpoint
 GET http://localhost:8787/
 
-### Send a test request with a name query parameter
-# @name with-name
-GET http://localhost:8787/?name=Gemini
+### Test the greet endpoint
+GET http://localhost:8787/greet/Gemini
+
+### Test the echo endpoint
+GET http://localhost:8787/echo/hello-world
+
+### Test the scrape endpoint
+GET http://localhost:8787/scrape?url=https://example.com
+
+### Test the Yahoo Finance stock scraping endpoint
+GET http://localhost:8787/stock/AAPL
+
+### Test Yahoo Finance 6758.T stock quote
+GET http://localhost:8787/stock/6758.T
+
+### Test multiple Yahoo Finance stock codes
+GET http://localhost:8787/stock/6758.T,7203.T

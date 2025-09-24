@@ -1,0 +1,68 @@
+{
+  "status": "success",
+  "data": [
+    {
+      "name": "NYダウ",
+      "code": "^DJI",
+      "update_time": "05:57",
+      "current_value": "46,292.78",
+      "bid_value": null,
+      "previous_day_change": "-88.76",
+      "change_rate": "-0.19"
+    },
+    {
+      "name": "日経平均株価",
+      "code": "998407.O",
+      "update_time": "15:45",
+      "current_value": "45,630.31",
+      "bid_value": null,
+      "previous_day_change": "+136.65",
+      "change_rate": "+0.30"
+    },
+    {
+      "name": "米ドル/円",
+      "code": "USDJPY=FX",
+      "update_time": null,
+      "current_value": "148.219",
+      "bid_value": "148.217",
+      "previous_day_change": null,
+      "change_rate": "0.611"
+    },
+    {
+      "name": "ソニーグループ(株)",
+      "code": "6758.T",
+      "update_time": "15:30",
+      "current_value": "4,322",
+      "bid_value": null,
+      "previous_day_change": "-68",
+      "change_rate": "-1.55"
+    },
+    {
+      "name": "ＪＸ金属(株)",
+      "code": "5016",
+      "update_time": "15:30",
+      "current_value": "1,689.5",
+      "bid_value": null,
+      "previous_day_change": "+61.5",
+      "change_rate": "+3.78"
+    },
+    {
+      "name": "楽天グループ(株)",
+      "code": "4755",
+      "update_time": "15:30",
+      "current_value": "970.1",
+      "bid_value": null,
+      "previous_day_change": "+5.7",
+      "change_rate": "+0.59"
+    },
+    {
+      "name": "ソニーグループ(株)",
+      "code": "6758",
+      "update_time": "15:30",
+      "current_value": "4,322",
+      "bid_value": null,
+      "previous_day_change": "-68",
+      "change_rate": "-1.55"
+    }
+  ]
+}

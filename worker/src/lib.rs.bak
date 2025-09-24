@@ -1,0 +1,642 @@
+use futures::future::join_all;
+use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
+use worker::{event, Env, Method, Request, Response, Result, Context, Headers, RequestInit, RouteContext};
+use std::collections::HashMap;
+use std::str::FromStr;
+use worker::kv::KvStore;
+
+// --- Data Structures ---
+
+/// A generic container for API responses.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ApiResponse<T> {
+    status: String,
+    data: T,
+}
+
+/// Represents the financial data scraped from a web page.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub struct FinancialData {
+    name: Option<String>,
+    code: Option<String>,
+    update_time: Option<String>,
+    current_value: Option<String>,
+    bid_value: Option<String>,
+    previous_day_change: Option<String>,
+    change_rate: Option<String>,
+}
+
+/// Holds the CSS selectors used for scraping.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct SelectorConfig {
+    name_selector: Option<String>,
+    current_value_selector: Option<String>,
+    previous_day_change_selector: Option<String>,
+    change_rate_selector: Option<String>,
+    update_time_selector: Option<String>,
+    fx_item_selector: Option<String>,
+    fx_term_selector: Option<String>,
+    fx_price_selector: Option<String>,
+}
+
+/// Represents the type of financial instrument.
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum CodeType {
+    Fx,
+    Nikkei,
+    Dji,
+    Stock,
+}
+
+/// Represents an error that occurred while fetching data for a specific code.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct QuoteError {
+    code: String,
+    error: String,
+}
+
+/// Represents the result of a quote request, containing both successful and failed items.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct QuoteResponse {
+    success: Vec<FinancialData>,
+    failed: Vec<QuoteError>,
+}
+
+/// Represents the request body for the test parser endpoint.
+#[derive(Deserialize, Serialize)]
+struct TestParseRequest {
+    html_content: String,
+    code: String,
+    selectors: SelectorConfig,
+}
+
+
+// --- Type Conversions ---
+
+impl CodeType {
+    /// Returns the string representation of the code type.
+    fn as_str(&self) -> &'static str {
+        match self {
+            CodeType::Fx => "fx",
+            CodeType::Nikkei => "nikkei",
+            CodeType::Dji => "dji",
+            CodeType::Stock => "stock",
+        }
+    }
+}
+
+impl FromStr for CodeType {
+    type Err = worker::Error;
+
+    /// Parses a string into a `CodeType`.
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "fx" => Ok(CodeType::Fx),
+            "nikkei" => Ok(CodeType::Nikkei),
+            "dji" => Ok(CodeType::Dji),
+            "stock" => Ok(CodeType::Stock),
+            _ => Err(worker::Error::from(format!("Invalid code_type: {}", s))),
+        }
+    }
+}
+
+// --- Utility and Parsing Logic ---
+
+/// Determines the `CodeType` from a given financial code string.
+fn get_code_type(code: &str) -> CodeType {
+    if code.contains("=FX") {
+        CodeType::Fx
+    } else if code.contains(".O") || code.contains("^N225") { // Nikkei
+        CodeType::Nikkei
+    } else if code.contains('^') { // Other indices like DJI
+        CodeType::Dji
+    } else {
+        CodeType::Stock
+    }
+}
+
+/// Provides a default `SelectorConfig` for a given `CodeType`.
+fn get_default_selectors(code_type: CodeType) -> SelectorConfig {
+    match code_type {
+        CodeType::Fx => SelectorConfig {
+            name_selector: Some("h2[class*=\"_BasePriceBoard__name\"]".to_string()),
+            fx_item_selector: Some("div[class*=\"_FxPriceBoard__item\"] > dl".to_string()),
+            fx_term_selector: Some("dt".to_string()),
+            fx_price_selector: Some("dd span[class*=\"_FxPriceBoard__price\"]".to_string()),
+            ..Default::default()
+        },
+        CodeType::Dji | CodeType::Nikkei | CodeType::Stock => SelectorConfig {
+            name_selector: Some("h2[class*=\"_BasePriceBoard__name\"]".to_string()),
+            current_value_selector: Some("span[class*=\"_CommonPriceBoard__price\"] span[class*=\"_StyledNumber__value\"]".to_string()),
+            previous_day_change_selector: Some("span[class*=\"__primary\"] span[class*=\"_StyledNumber__value\"]".to_string()),
+            change_rate_selector: Some("span[class*=\"__secondary\"]".to_string()),
+            update_time_selector: Some("li[class*=\"_CommonPriceBoard__time\"] > time".to_string()),
+            ..Default::default()
+        },
+    }
+}
+
+/// Cleans a string by removing whitespace, parentheses, and percent signs.
+fn clean_text(s: Option<String>) -> Option<String> {
+    s.map(|text| {
+        text.replace(|c: char| c.is_whitespace() || c == '(' || c == ')' || c == '%', "")
+            .trim()
+            .to_string()
+    })
+}
+
+pub fn parse_with_selectors(html_content: &str, code: &str, selectors: &SelectorConfig) -> Result<FinancialData> {
+    let document = Html::parse_document(html_content);
+    let get_text = |sel_str: &Option<String>| -> Result<Option<String>> {
+        if let Some(s) = sel_str {
+            let selector = Selector::parse(s).map_err(|e| worker::Error::from(format!("Selector parse error: {}", e)))?;
+            Ok(document.select(&selector).next().map(|e| e.text().collect::<String>().trim().to_string()))
+        } else {
+            Ok(None)
+        }
+    };
+
+    let mut data = FinancialData {
+        code: Some(code.to_string()),
+        ..Default::default()
+    };
+
+    let code_type = get_code_type(code);
+    if code_type == CodeType::Fx {
+        data.name = get_text(&selectors.name_selector)?;
+        if let (Some(item_sel), Some(term_sel), Some(price_sel)) =
+            (&selectors.fx_item_selector, &selectors.fx_term_selector, &selectors.fx_price_selector) {
+            let item_selector = Selector::parse(item_sel).map_err(|e| worker::Error::from(format!("{}",e)))?;
+            let term_selector = Selector::parse(term_sel).map_err(|e| worker::Error::from(format!("{}",e)))?;
+            let price_selector = Selector::parse(price_sel).map_err(|e| worker::Error::from(format!("{}",e)))?;
+
+            for item in document.select(&item_selector) {
+                let term = item.select(&term_selector).next().map(|e| e.text().collect::<String>());
+                let value = item.select(&price_selector).next().map(|e| e.text().collect::<String>());
+                if let Some(term) = term {
+                    match term.trim() {
+                        "Bid（売値）" => data.bid_value = value,
+                        "Ask（買値）" => data.current_value = value,
+                        "Change（始値比）" => data.change_rate = clean_text(value),
+                        _ => (),
+                    }
+                }
+            }
+        }
+    } else { // dji, nikkei, stock
+        data.name = get_text(&selectors.name_selector)?;
+        data.current_value = get_text(&selectors.current_value_selector)?;
+        data.previous_day_change = get_text(&selectors.previous_day_change_selector)?;
+        data.change_rate = clean_text(get_text(&selectors.change_rate_selector)?);
+        data.update_time = get_text(&selectors.update_time_selector)?;
+    }
+
+    Ok(data)
+}
+
+
+// --- Fetching Logic ---
+
+pub async fn fetch_html(url: &str) -> Result<String> {
+    let mut headers = Headers::new();
+    headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")?;
+    let mut request_init = RequestInit::new();
+    request_init.with_method(Method::Get).with_headers(headers);
+    let request = Request::new_with_init(url, &request_init)?;
+    worker::Fetch::Request(request).send().await?.text().await
+}
+
+// --- Worker Entrypoint and Routing ---
+
+#[event(fetch)]
+pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+    let router = worker::Router::new();
+    router
+        .get_async("/api/quote", |req, ctx| handle_quote(req, ctx))
+        .post_async("/api/verify-selectors", |mut req, _ctx| async move {
+            handle_verify_selectors_post(&mut req).await
+        })
+        .get_async("/api/verify-selectors", |req, ctx| async move {
+            handle_verify_selectors_get(req, ctx.env).await
+        })
+        .post_async("/api/update-selectors", |mut req, ctx| async move {
+            handle_update_selectors(&mut req, ctx.env).await
+        })
+        .post_async("/api/test-parser", |mut req, _ctx| async move {
+            handle_test_parser(req).await
+        })
+        .options("/api/quote", cors_preflight)
+        .options("/api/verify-selectors", cors_preflight)
+        .options("/api/update-selectors", cors_preflight)
+        .options("/api/test-parser", cors_preflight)
+        .run(req, env).await
+}
+
+fn cors_preflight(_req: Request, _ctx: worker::RouteContext<()>) -> Result<Response> {
+    let mut headers = Headers::new();
+    headers.set("Access-Control-Allow-Origin", "*")?;
+    headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")?;
+    headers.set("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key")?;
+    Ok(Response::empty()?.with_headers(headers))
+}
+
+// --- API Handlers ---
+
+async fn handle_test_parser(mut req: Request) -> Result<Response> {
+    let test_data: TestParseRequest = req.json().await?;
+    let result = parse_with_selectors(
+        &test_data.html_content,
+        &test_data.code,
+        &test_data.selectors,
+    );
+
+    let mut response = match result {
+        Ok(data) => {
+            let api_response = ApiResponse {
+                status: "success".to_string(),
+                data: data,
+            };
+            Response::from_json(&api_response)?
+        }
+        Err(e) => {
+            let error_response = ApiResponse {
+                status: "error".to_string(),
+                data: e.to_string(),
+            };
+            Response::from_json(&error_response)?
+        }
+    };
+    response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    Ok(response)
+}
+
+async fn handle_quote(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let url = req.url()?;
+    let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
+    let codes_str = match query_params.get("codes") {
+        Some(c) => c,
+        None => return Response::error("Query parameter 'codes' is required.", 400),
+    };
+
+    let codes: Vec<&str> = codes_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+    if codes.is_empty() {
+        return Response::error("Query parameter 'codes' cannot be empty.", 400);
+    }
+    let kv = ctx.env.kv("FIN_SELECTORS")?;
+
+    let futures: Vec<_> = codes.iter().map(|&code| {
+        let kv_clone = kv.clone();
+        async move {
+            let code_type = get_code_type(code);
+            let yahoo_url = format!("https://finance.yahoo.co.jp/quote/{}", code);
+            
+            let html_content_result = fetch_html(&yahoo_url).await;
+            let html_content = html_content_result.map_err(|e| worker::Error::from(format!("Failed to fetch HTML for {}: {}", code, e)))?;
+
+            let selectors: SelectorConfig = kv_clone.get(code_type.as_str()).json().await?
+                .unwrap_or_else(|| get_default_selectors(code_type));
+
+            parse_with_selectors(&html_content, code, &selectors)
+        }
+    }).collect();
+
+    let results: Vec<Result<FinancialData>> = join_all(futures).await;
+
+    let mut success_data = Vec::new();
+    let mut failed_data = Vec::new();
+
+    for (i, result) in results.into_iter().enumerate() {
+        if let Some(&code) = codes.get(i) {
+            match result {
+                Ok(data) => success_data.push(data),
+                Err(e) => failed_data.push(QuoteError {
+                    code: code.to_string(),
+                    error: e.to_string(),
+                }),
+            }
+        }
+    }
+
+    let status = if failed_data.is_empty() { "success" } else if success_data.is_empty() { "failure" } else { "partial_success" };
+
+    let api_response = ApiResponse {
+        status: status.to_string(),
+        data: QuoteResponse {
+            success: success_data,
+            failed: failed_data,
+        },
+    };
+    
+    let mut response = Response::from_json(&api_response)?;
+    response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    Ok(response)
+}
+
+async fn handle_get_selectors(ctx: RouteContext<()>) -> Result<Response> {
+    let code_type_str = match ctx.param("code_type") {
+        Some(ct) => ct,
+        None => return Response::error("Parameter 'code_type' is required.", 400),
+    };
+    let code_type: CodeType = code_type_str.parse()?;
+    let kv = ctx.env.kv("FIN_SELECTORS")?;
+    let selectors: Option<SelectorConfig> = kv.get(code_type.as_str()).json().await?;
+
+    let api_response = ApiResponse {
+        status: "success".to_string(),
+        data: selectors,
+    };
+    
+    let mut response = Response::from_json(&api_response)?;
+    response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    Ok(response)
+}
+
+async fn handle_post_selectors(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    if let Some(key) = ctx.env.secret("ADMIN_KEY").ok() {
+        if req.headers().get("X-Admin-Key")? != Some(key.to_string()) {
+            return Response::error("Unauthorized", 403);
+        }
+    } else {
+        return Response::error("ADMIN_KEY not set", 500);
+    }
+
+    let req_url = req.url()?;
+    let query_params: HashMap<_, _> = req_url.query_pairs().into_owned().collect();
+
+    let code_type_str = match ctx.param("code_type") {
+        Some(ct) => ct,
+        None => return Response::error("Parameter 'code_type' is required.", 400),
+    };
+    let code_type: CodeType = code_type_str.parse()?;
+    let kv = ctx.env.kv("FIN_SELECTORS")?;
+
+    let response_result = if query_params.get("autoupdate").map_or(false, |v| v == "true") {
+        let url_to_check = match query_params.get("url") {
+            Some(u) => u,
+            None => return Response::error("Query parameter 'url' is required for autoupdate.", 400),
+        };
+        let new_selectors: SelectorConfig = req.json().await?;
+        let update_result = auto_update_invalid_selectors(url_to_check, code_type, &new_selectors, &kv).await?;
+        
+        let api_response = ApiResponse {
+            status: "success".to_string(),
+            data: update_result,
+        };
+        Response::from_json(&api_response)
+    } else {
+        let selectors: SelectorConfig = req.json().await?;
+        kv.put(code_type.as_str(), selectors)?.execute().await?;
+
+        let api_response = ApiResponse {
+            status: "success".to_string(),
+            data: format!("Selectors for '{}' updated.", code_type.as_str()),
+        };
+        Response::from_json(&api_response)
+    };
+    
+    let mut response = response_result?;
+    response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    Ok(response)
+}
+
+async fn handle_delete_selectors(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    if let Some(key) = ctx.env.secret("ADMIN_KEY").ok() {
+        if req.headers().get("X-Admin-Key")? != Some(key.to_string()) {
+            return Response::error("Unauthorized", 403);
+        }
+    } else {
+        return Response::error("ADMIN_KEY not set", 500);
+    }
+
+    let code_type_str = match ctx.param("code_type") {
+        Some(ct) => ct,
+        None => return Response::error("Parameter 'code_type' is required.", 400),
+    };
+    let code_type: CodeType = code_type_str.parse()?;
+    let kv = ctx.env.kv("FIN_SELECTORS")?;
+    kv.delete(code_type.as_str()).await?;
+
+    let api_response = ApiResponse {
+        status: "success".to_string(),
+        data: format!("Selectors for '{}' deleted.", code_type.as_str()),
+    };
+    
+    let mut response = Response::from_json(&api_response)?;
+    response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    Ok(response)
+}
+
+
+
+pub fn parse_financial_data(html_content: &str, url: String) -> FinancialData {
+    let document = Html::parse_document(html_content);
+
+    if url.contains("USDJPY=FX") {
+        let name_selector = Selector::parse("h2[class*=\"PriceBoard__name\"]").expect("Failed to parse name selector");
+        let time_selector = Selector::parse("time").expect("Failed to parse time selector");
+        let fx_price_selector = Selector::parse("div > span").expect("Failed to parse fx price selector");
+        let bid_term_selector = Selector::parse("dt[class*=\"_FxPriceBoard__term\"]").expect("Failed to parse bid term selector");
+        let dd_selector = Selector::parse("dd[class*=\"_FxPriceBoard__description\"]").expect("Failed to parse dd selector");
+        let price_span_selector = Selector::parse("span[class*=\"_FxPriceBoard__price\"]").expect("Failed to parse price span selector");
+        let dd_plain_selector = Selector::parse("dd").expect("Failed to parse dd plain selector");
+        let span_selector = Selector::parse("span").expect("Failed to parse span selector");
+        let get_text = |el: Option<scraper::ElementRef>| el.map(|e| e.text().collect::<String>());
+
+        let mut data = FinancialData {
+            name: get_text(document.select(&name_selector).next()),
+            code: Some("USDJPY=FX".to_string()),
+            update_time: get_text(document.select(&time_selector).next()),
+            current_value: None,
+            bid_value: None,
+            previous_day_change: None,
+            change_rate: None,
+        };
+
+        data.current_value = get_text(document.select(&fx_price_selector).next());
+        for dt in document.select(&bid_term_selector) {
+            if dt.text().collect::<String>().trim() == "Bid（売値）" {
+                if let Some(dl) = dt.parent().and_then(scraper::ElementRef::wrap) {
+                    data.bid_value = get_text(dl.select(&dd_selector).next().and_then(|dd| dd.select(&price_span_selector).next()));
+                    break;
+                }
+            }
+        }
+        for dt in document.select(&bid_term_selector) {
+            if dt.text().collect::<String>().trim() == "Change（始値比）" {
+                if let Some(dl) = dt.parent().and_then(scraper::ElementRef::wrap) {
+                    data.change_rate = get_text(dl.select(&dd_plain_selector).next().and_then(|dd| dd.select(&span_selector).next()));
+                    break;
+                }
+            }
+        }
+        data
+    } else {
+        let title_selector = Selector::parse("title").expect("Failed to parse title selector");
+        let title_text = document.select(&title_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+        
+        let name = title_text.split('【').next().map(|s| s.trim().to_string());
+        let code = title_text.split('【').nth(1).and_then(|s| s.split('】').next()).map(|s| s.to_string());
+
+        let mut data = FinancialData {
+            name, 
+            code,
+            update_time: None,
+            current_value: None,
+            bid_value: None, // Not available on stock page
+            previous_day_change: None,
+            change_rate: None,
+        };
+
+        let current_value_selector = Selector::parse(".PriceBoard__price__1V0k .StyledNumber__value__3rXW").expect("Failed to parse current value selector");
+        let previous_day_change_selector = Selector::parse(".PriceChangeLabel__primary__Y_ut .StyledNumber__value__3rXW").expect("Failed to parse previous day change selector");
+        let change_rate_selector = Selector::parse(".PriceChangeLabel__secondary__3BXI").expect("Failed to parse change rate selector");
+
+        data.current_value = document.select(&current_value_selector).next().map(|e| e.text().collect::<String>());
+        data.previous_day_change = document.select(&previous_day_change_selector).next().map(|e| e.text().collect::<String>());
+        data.change_rate = document.select(&change_rate_selector)
+            .next()
+            .map(|e| {
+                let text = e.text().collect::<String>();
+                text.replace(|c: char| c.is_whitespace(), "").trim().to_string()
+            });
+
+        let update_time_selector = Selector::parse("time").expect("Failed to parse update time selector");
+        data.update_time = document.select(&update_time_selector).next().map(|e| e.text().collect::<String>());
+
+        data
+    }
+}
+
+async fn handle_verify_selectors_get(req: Request, env: Env) -> Result<Response> {
+    let url = req.url()?;
+    let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
+
+    let code_type = match query_params.get("code_type") {
+        Some(c) => c,
+        None => return Response::error("Query parameter 'code_type' is required.", 400),
+    };
+
+    let code = match query_params.get("code") {
+        Some(c) => c,
+        None => return Response::error("Query parameter 'code' is required.", 400),
+    };
+
+    let kv = env.kv("FIN_SELECTORS")?;
+    let selectors: SelectorConfig = kv.get(code_type).json().await?.unwrap_or_else(|| get_default_selectors(code_type.parse().unwrap()));
+
+    let yahoo_url = format!("https://finance.yahoo.co.jp/quote/{}", code);
+    let html_content = fetch_html(&yahoo_url).await?;
+    let data = parse_with_selectors(&html_content, code, &selectors)?;
+
+    let api_response = ApiResponse {
+        status: "success".to_string(),
+        data,
+    };
+
+    let mut response = Response::from_json(&api_response)?;
+    response.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    Ok(response)
+}
+
+async fn handle_verify_selectors_post(_req: &mut Request) -> Result<Response> {
+    Response::error("Not Implemented", 501)
+}
+
+async fn handle_update_selectors(_req: &mut Request, _env: Env) -> Result<Response> {
+    Response::error("Not Implemented", 501)
+}
+
+
+/// 指定URLのHTMLをダウンロードし、デフォルトセレクターで要素が取得できるか判定する
+pub async fn check_selectors_against_url(url: &str, code_type: CodeType) -> Result<HashMap<String, bool>> {
+    // HTMLダウンロード
+    let html = fetch_html(url).await?;
+    let document = Html::parse_document(&html);
+    let selectors = get_default_selectors(code_type);
+
+    // セレクター名とOption<String>のペアを列挙
+    let selector_map: Vec<(&str, &Option<String>)> = match code_type {
+        CodeType::Fx => vec![ 
+            ("name_selector", &selectors.name_selector),
+            ("fx_item_selector", &selectors.fx_item_selector),
+            ("fx_term_selector", &selectors.fx_term_selector),
+            ("fx_price_selector", &selectors.fx_price_selector),
+        ],
+        _ => vec![ 
+            ("name_selector", &selectors.name_selector),
+            ("current_value_selector", &selectors.current_value_selector),
+            ("previous_day_change_selector", &selectors.previous_day_change_selector),
+            ("change_rate_selector", &selectors.change_rate_selector),
+            ("update_time_selector", &selectors.update_time_selector),
+        ],
+    };
+
+    // 判定結果
+    let mut result = HashMap::new();
+    for (name, sel_opt) in selector_map {
+        let found = if let Some(sel) = sel_opt {
+            if let Ok(selector) = Selector::parse(sel) {
+                document.select(&selector).next().is_some()
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        result.insert(name.to_string(), found);
+    }
+    Ok(result)
+}
+
+/// 指定URLのHTMLを取得し、各セレクターが有効か自動判定し、無効な場合は新しいセレクターに書き換える
+pub async fn auto_update_invalid_selectors(
+    url: &str,
+    code_type: CodeType,
+    new_selectors: &SelectorConfig,
+    kv: &KvStore,
+) -> Result<HashMap<String, bool>> {
+    let html = fetch_html(url).await?;
+    let document = Html::parse_document(&html);
+    let mut selectors = get_default_selectors(code_type);
+
+    // セレクター名とOption<String>のペアを列挙
+    let selector_map: Vec<(&str, &mut Option<String>, &Option<String>)> = match code_type {
+        CodeType::Fx => vec![ 
+            ("name_selector", &mut selectors.name_selector, &new_selectors.name_selector),
+            ("fx_item_selector", &mut selectors.fx_item_selector, &new_selectors.fx_item_selector),
+            ("fx_term_selector", &mut selectors.fx_term_selector, &new_selectors.fx_term_selector),
+            ("fx_price_selector", &mut selectors.fx_price_selector, &new_selectors.fx_price_selector),
+        ],
+        _ => vec![ 
+            ("name_selector", &mut selectors.name_selector, &new_selectors.name_selector),
+            ("current_value_selector", &mut selectors.current_value_selector, &new_selectors.current_value_selector),
+            ("previous_day_change_selector", &mut selectors.previous_day_change_selector, &new_selectors.previous_day_change_selector),
+            ("change_rate_selector", &mut selectors.change_rate_selector, &new_selectors.change_rate_selector),
+            ("update_time_selector", &mut selectors.update_time_selector, &new_selectors.update_time_selector),
+        ],
+    };
+
+    let mut result = HashMap::new();
+    for (name, sel_mut, new_sel) in selector_map {
+        let found = if let Some(sel) = sel_mut {
+            if let Ok(selector) = Selector::parse(sel) {
+                document.select(&selector).next().is_some()
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        // 無効なら新しいセレクターに書き換え
+        if !found {
+            *sel_mut = new_sel.clone();
+        }
+        result.insert(name.to_string(), found);
+    }
+
+    // KVストアに新しいセレクターを保存
+    kv.put(code_type.as_str(), &selectors)?.execute().await?;
+
+    Ok(result)
+}

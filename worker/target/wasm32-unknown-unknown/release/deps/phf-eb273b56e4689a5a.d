@@ -1,0 +1,11 @@
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\deps\phf-eb273b56e4689a5a.d: C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\lib.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\map.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_map.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_set.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\set.rs
+
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\deps\libphf-eb273b56e4689a5a.rlib: C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\lib.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\map.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_map.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_set.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\set.rs
+
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\deps\libphf-eb273b56e4689a5a.rmeta: C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\lib.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\map.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_map.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_set.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\set.rs
+
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\lib.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\map.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_map.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\ordered_set.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\phf-0.11.3\src\set.rs:

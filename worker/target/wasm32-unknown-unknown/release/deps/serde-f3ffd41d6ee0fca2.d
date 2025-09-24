@@ -1,0 +1,14 @@
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\deps\serde-f3ffd41d6ee0fca2.d: C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\lib.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\integer128.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\mod.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\de.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\ser.rs C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\build\serde-edbb8b2799b06122\out/private.rs
+
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\deps\libserde-f3ffd41d6ee0fca2.rlib: C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\lib.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\integer128.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\mod.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\de.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\ser.rs C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\build\serde-edbb8b2799b06122\out/private.rs
+
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\deps\libserde-f3ffd41d6ee0fca2.rmeta: C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\lib.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\integer128.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\mod.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\de.rs C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\ser.rs C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\build\serde-edbb8b2799b06122\out/private.rs
+
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\lib.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\integer128.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\mod.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\de.rs:
+C:\Users\kanda\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.226\src\private\ser.rs:
+C:\Users\kanda\GitHub\my-worker\worker\target\wasm32-unknown-unknown\release\build\serde-edbb8b2799b06122\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\kanda\\GitHub\\my-worker\\worker\\target\\wasm32-unknown-unknown\\release\\build\\serde-edbb8b2799b06122\\out

@@ -1,0 +1,13 @@
+name = "my-worker"
+main = "worker/build/index.js"
+compatibility_date = "2025-09-17"
+
+[build]
+command = "cargo install -q worker-build && worker-build --release"
+cwd = "./worker"
+
+[vars]
+MY_VARIABLE = "secret_value"
+
+[observability]
+enabled = true
