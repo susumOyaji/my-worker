@@ -1,1 +1,0 @@
-cssparser::parser::ParseError<'_, selectors::parser::SelectorParseErrorKind<'_>>

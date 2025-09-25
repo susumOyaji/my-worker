@@ -1,9 +1,0 @@
-/Users/sumitomoshigeru/Documents/GitHub/my-worker/worker/target/wasm32-unknown-unknown/release/deps/libwasm_bindgen_futures-7b31e11c70aa357f.rmeta: /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/lib.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/queue.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/task/singlethread.rs
-
-/Users/sumitomoshigeru/Documents/GitHub/my-worker/worker/target/wasm32-unknown-unknown/release/deps/libwasm_bindgen_futures-7b31e11c70aa357f.rlib: /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/lib.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/queue.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/task/singlethread.rs
-
-/Users/sumitomoshigeru/Documents/GitHub/my-worker/worker/target/wasm32-unknown-unknown/release/deps/wasm_bindgen_futures-7b31e11c70aa357f.d: /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/lib.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/queue.rs /Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/task/singlethread.rs
-
-/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/lib.rs:
-/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/queue.rs:
-/Users/sumitomoshigeru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.53/src/task/singlethread.rs:

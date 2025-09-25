@@ -166,7 +166,11 @@ dist
 !.env.example
 .wrangler/
 
+# Rust build artifacts
+/worker/target/
 
+# Worker build output
+/worker/build/
 
-
-#npm install --save-dev wrangler@4.38.0
+# Backup files
+*.bak

@@ -1,4 +1,4 @@
-use worker :: *
+use worker :: *;
 use scraper::{Html, Selector};
 use serde::Serialize;
 use futures::future::join_all;
