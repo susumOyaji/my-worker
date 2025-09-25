@@ -140,9 +140,9 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let mut futures = Vec::new(); // 型指定は不要になる
             for code in codes {
                 if code.ends_with("=FX") {
-                    futures.push(get_fx_info(code).boxed()); // .boxed() を使用
+                    futures.push(get_fx_info(code).boxed_local()); // .boxed_local() を使用
                 } else {
-                    futures.push(get_stock_info(code).boxed()); // .boxed() を使用
+                    futures.push(get_stock_info(code).boxed_local()); // .boxed_local() を使用
                 }
             }
 
