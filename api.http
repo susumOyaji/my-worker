@@ -17,4 +17,10 @@ GET http://localhost:8787/stock/AAPL
 GET http://localhost:8787/stock/6758.T
 
 ### Test multiple Yahoo Finance stock codes
-GET http://localhost:8787/stock/6758.T,7203.T
+GET http://localhost:8787/stock/6758.T,5016.T
+
+### Test Yahoo Finance ^DJI stock quote
+GET http://localhost:8787/stock/^DJI
+
+### Test Yahoo Finance USDJPY=FX stock quote
+GET http://localhost:8787/stock/USDJPY=FX
