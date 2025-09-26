@@ -8,13 +8,15 @@ use futures::Future;
 #[derive(Serialize, Clone)]
 struct StockInfo {
     code: String,
+    name: String,
     price: f64,
     change: f64,
     change_percent: f64,
+    update_time: String,
 }
 
 // 既存のget_stock_info関数 (株価用)
-async fn get_stock_info(code: String) -> Result<StockInfo> {
+async fn get_regular_stock_info(code: String) -> Result<StockInfo> {
     let url = format!("https://finance.yahoo.co.jp/quote/{}", code);
     let mut res = Fetch::Url(url.parse().unwrap()).send().await?;
 
@@ -27,9 +29,16 @@ async fn get_stock_info(code: String) -> Result<StockInfo> {
     let body = res.text().await?;
     let document = Html::parse_document(&body);
 
-    let price_selector = Selector::parse("div[class*=\"PriceBoard__priceBlock\"] > span").unwrap();
-    let change_selector = Selector::parse("span[class*=\"PriceChangeLabel__primary\"]").unwrap();
-    let percent_selector = Selector::parse("span[class*=\"PriceChangeLabel__secondary\"]").unwrap();
+    let name_selector = Selector::parse("title").unwrap();
+    let name_full = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+    let name = name_full.split('【').next().unwrap_or("").trim().to_string();
+
+    let update_time_selector = Selector::parse("ul[class*=\"PriceBoard__times\"] > li > time").unwrap();
+    let update_time = document.select(&update_time_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+
+    let price_selector = Selector::parse("span[class*=\"PriceBoard__price\"] > span > span").unwrap();
+    let change_selector = Selector::parse("span[class*=\"PriceChangeLabel__primary\"] > span").unwrap();
+    let percent_selector = Selector::parse("span[class*=\"PriceChangeLabel__secondary\"] > span[class*=\"StyledNumber__value\"]").unwrap();
 
     if let (Some(price_s), Some(change_s), Some(percent_s)) = (
         document.select(&price_selector).next().map(|e| e.text().collect::<String>()),
@@ -43,9 +52,61 @@ async fn get_stock_info(code: String) -> Result<StockInfo> {
         if let (Ok(price), Ok(change), Ok(percent)) = (price, change, percent) {
             Ok(StockInfo {
                 code,
+                name,
                 price,
                 change,
                 change_percent: percent,
+                update_time,
+            })
+        } else {
+            Err("Failed to parse stock price values.".into())
+        }
+    } else {
+        Err("Could not find all required stock price elements on the page.".into())
+    }
+}
+
+async fn get_index_info(code: String) -> Result<StockInfo> {
+    let url = format!("https://finance.yahoo.co.jp/quote/{}", code);
+    let mut res = Fetch::Url(url.parse().unwrap()).send().await?;
+
+    if res.status_code() != 200 {
+        let status = res.status_code();
+        let text = res.text().await.unwrap_or_else(|_| String::from("No body"));
+        return Err(format!("Request failed for {} with status {}: {}", code, status, text).into());
+    }
+
+    let body = res.text().await?;
+    let document = Html::parse_document(&body);
+
+    let name_selector = Selector::parse("title").unwrap();
+    let name_full = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+    let name = name_full.split('【').next().unwrap_or("").trim().to_string();
+
+    let update_time_selector = Selector::parse("ul[class*=\"CommonPriceBoard__times\"] > li > time").unwrap();
+    let update_time = document.select(&update_time_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+
+    let price_selector = Selector::parse("span[class*=\"CommonPriceBoard__price\"] > span > span").unwrap();
+    let change_selector = Selector::parse("span[class*=\"PriceChangeLabel__primary\"] > span").unwrap();
+    let percent_selector = Selector::parse("span[class*=\"PriceChangeLabel__secondary\"] > span[class*=\"StyledNumber__value\"]").unwrap();
+
+    if let (Some(price_s), Some(change_s), Some(percent_s)) = (
+        document.select(&price_selector).next().map(|e| e.text().collect::<String>()),
+        document.select(&change_selector).next().map(|e| e.text().collect::<String>()),
+        document.select(&percent_selector).next().map(|e| e.text().collect::<String>()),
+    ) {
+        let price = price_s.trim().replace(",", "").parse::<f64>();
+        let change = change_s.trim().parse::<f64>();
+        let percent = percent_s.trim().replace(&['(', ')', '%'][..], "").parse::<f64>();
+
+        if let (Ok(price), Ok(change), Ok(percent)) = (price, change, percent) {
+            Ok(StockInfo {
+                code,
+                name,
+                price,
+                change,
+                change_percent: percent,
+                update_time,
             })
         } else {
             Err("Failed to parse stock price values.".into())
@@ -68,6 +129,13 @@ async fn get_fx_info(code: String) -> Result<StockInfo> {
 
     let body = res.text().await?;
     let document = Html::parse_document(&body);
+
+    let name_selector = Selector::parse("title").unwrap();
+    let name_full = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+    let name = name_full.split('【').next().unwrap_or("").trim().to_string();
+
+    let time_selector = Selector::parse("time").unwrap();
+    let update_time = document.select(&time_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
 
     let item_selector = Selector::parse("div[class*=\"FxPriceBoard__item\"]").unwrap();
     let price_value_selector = Selector::parse("span[class*=\"FxPriceBoard__price\"]").unwrap();
@@ -97,9 +165,11 @@ async fn get_fx_info(code: String) -> Result<StockInfo> {
     if let (Some(p), Some(c)) = (price, change) {
         Ok(StockInfo {
             code,
+            name,
             price: p,
             change: c,
             change_percent: 0.0, // FXページには直接的な変化率がないため、0.0とする
+            update_time,
         })
     } else {
         Err(format!("Could not find all required FX price elements on the page for code: {}", code).into())
@@ -140,8 +210,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             for code in codes {
                 if code.ends_with("=FX") {
                     futures.push(get_fx_info(code).boxed_local());
+                } else if code.starts_with("^") {
+                    futures.push(get_index_info(code).boxed_local());
                 } else {
-                    futures.push(get_stock_info(code).boxed_local());
+                    futures.push(get_regular_stock_info(code).boxed_local());
                 }
             }
 

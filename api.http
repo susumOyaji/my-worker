@@ -24,3 +24,8 @@ GET http://localhost:8787/stock/^DJI
 
 ### Test Yahoo Finance USDJPY=FX stock quote
 GET http://localhost:8787/stock/USDJPY=FX
+
+
+# get_fx_info は変更せず、その後プロジェクトをビルドして検証し、ユーザーに報告します。ファイルを読み込みま
+#  した。get_stock_info 内の time_selector を Selector::parse("li[class*=\"_CommonPriceBoard__time\"] >
+#  time").unwrap(); から Selector::parse("div[class*=\"PriceBoard__marketTime\"]").unwrap(); に変更します。
