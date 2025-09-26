@@ -2,8 +2,8 @@ use worker :: *;
 use scraper::{Html, Selector};
 use serde::Serialize;
 use futures::future::{join_all, FutureExt}; // FutureExt を追加
-// use std::pin::Pin; // 不要になる
-// use futures::Future; // 不要になる
+use std::pin::Pin;
+use futures::Future;
 
 #[derive(Serialize, Clone)]
 struct StockInfo {
@@ -57,8 +57,7 @@ async fn get_stock_info(code: String) -> Result<StockInfo> {
 
 // 新しいget_fx_info関数 (FX用)
 async fn get_fx_info(code: String) -> Result<StockInfo> {
-    let url = format!("https://finance.yahoo.co.jp/quote/{}/
-", code); // URLの末尾にスラッシュを追加
+    let url = format!("https://finance.yahoo.co.jp/quote/{}/", code); // URLの末尾にスラッシュを追加
     let mut res = Fetch::Url(url.parse().unwrap()).send().await?;
 
     if res.status_code() != 200 {
@@ -137,12 +136,12 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 
             let codes: Vec<String> = codes_str.split(',').map(String::from).collect();
             
-            let mut futures = Vec::new(); // 型指定は不要になる
+            let mut futures: Vec<Pin<Box<dyn Future<Output = Result<StockInfo>>>>> = Vec::new();
             for code in codes {
                 if code.ends_with("=FX") {
-                    futures.push(get_fx_info(code).boxed_local()); // .boxed_local() を使用
+                    futures.push(get_fx_info(code).boxed_local());
                 } else {
-                    futures.push(get_stock_info(code).boxed_local()); // .boxed_local() を使用
+                    futures.push(get_stock_info(code).boxed_local());
                 }
             }
 
