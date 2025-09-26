@@ -29,3 +29,6 @@ GET http://localhost:8787/stock/USDJPY=FX
 # get_fx_info は変更せず、その後プロジェクトをビルドして検証し、ユーザーに報告します。ファイルを読み込みま
 #  した。get_stock_info 内の time_selector を Selector::parse("li[class*=\"_CommonPriceBoard__time\"] >
 #  time").unwrap(); から Selector::parse("div[class*=\"PriceBoard__marketTime\"]").unwrap(); に変更します。
+#<span class="_CommonPriceBoard__code_1g7gt_11">^DJI</span>からcodeを抽出できるか
+#<h2 class="PriceBoard__name__166W">ソニーグループ(株)</h2>
+#<h2 class="PriceBoard__name__166W">ＪＸ金属(株)</h2>

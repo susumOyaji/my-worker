@@ -4,6 +4,8 @@ use serde::Serialize;
 use futures::future::{join_all, FutureExt}; // FutureExt を追加
 use std::pin::Pin;
 use futures::Future;
+use urlencoding::decode;
+use std::borrow::Cow;
 
 #[derive(Serialize, Clone)]
 struct StockInfo {
@@ -29,9 +31,11 @@ async fn get_regular_stock_info(code: String) -> Result<StockInfo> {
     let body = res.text().await?;
     let document = Html::parse_document(&body);
 
-    let name_selector = Selector::parse("title").unwrap();
-    let name_full = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
-    let name = name_full.split('【').next().unwrap_or("").trim().to_string();
+   
+
+    let name_selector = Selector::parse("h2[class*=\"PriceBoard__name\"]").unwrap();
+    let name = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+
 
     let update_time_selector = Selector::parse("ul[class*=\"PriceBoard__times\"] > li > time").unwrap();
     let update_time = document.select(&update_time_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
@@ -79,12 +83,12 @@ async fn get_index_info(code: String) -> Result<StockInfo> {
     let body = res.text().await?;
     let document = Html::parse_document(&body);
 
-    let name_selector = Selector::parse("title").unwrap();
-    let name_full = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
-    let name = name_full.split('【').next().unwrap_or("").trim().to_string();
-
-    let update_time_selector = Selector::parse("ul[class*=\"CommonPriceBoard__times\"] > li > time").unwrap();
-    let update_time = document.select(&update_time_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+    let name_selector = Selector::parse("h2[class*=\"_BasePriceBoard__name\"]").unwrap();
+    let name = document.select(&name_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+    
+    let time_selector = Selector::parse("time").unwrap();
+    let update_time = document.select(&time_selector).next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+   
 
     let price_selector = Selector::parse("span[class*=\"CommonPriceBoard__price\"] > span > span").unwrap();
     let change_selector = Selector::parse("span[class*=\"PriceChangeLabel__primary\"] > span").unwrap();
@@ -208,12 +212,13 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             
             let mut futures: Vec<Pin<Box<dyn Future<Output = Result<StockInfo>>>>> = Vec::new();
             for code in codes {
-                if code.ends_with("=FX") {
-                    futures.push(get_fx_info(code).boxed_local());
-                } else if code.starts_with("^") {
-                    futures.push(get_index_info(code).boxed_local());
+                let decoded_code = decode(&code).unwrap_or_else(|_| Cow::Owned(code.clone())); // Decode the code
+                if decoded_code.ends_with("=FX") {
+                    futures.push(get_fx_info(decoded_code.to_string()).boxed_local());
+                } else if decoded_code.starts_with("^") {
+                    futures.push(get_index_info(decoded_code.to_string()).boxed_local());
                 } else {
-                    futures.push(get_regular_stock_info(code).boxed_local());
+                    futures.push(get_regular_stock_info(decoded_code.to_string()).boxed_local());
                 }
             }
 
