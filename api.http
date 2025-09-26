@@ -7,9 +7,6 @@ GET http://localhost:8787/greet/Gemini
 ### Test the echo endpoint
 GET http://localhost:8787/echo/hello-world
 
-### Test the scrape endpoint
-GET http://localhost:8787/scrape?url=https://example.com
-
 ### Test the Yahoo Finance stock scraping endpoint
 GET http://localhost:8787/stock/AAPL
 
